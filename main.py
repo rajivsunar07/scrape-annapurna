@@ -10,17 +10,14 @@ def get_articles(search, limit=None, file_name=None):
 
     if file_name == None:
         file_name = search + '.json' # file with the search term is created
-    
-    pagination_record = file_name[:-5] + '-pagination.txt' # name of file to store pagination record
 
-    
-    if not os.path.isfile(pagination_record):
-        with open(pagination_record, mode='w') as f:
-            f.write(str(page))      # create a file and append page 1 if no pagination file
-    else:
-        with open(pagination_record) as f:
-            current = f.readlines()[-1]
-            page = int(current) + 1     # read the file to get the last page
+    if os.path.isfile(file_name):
+        with open(file_name) as f:
+            articles = list(json.load(f))
+            page = articles[-1]['page'] + 1
+    else: 
+        with open(file_name, mode='w') as f:
+            f.write(json.dumps([]))
 
     # if the file contains required no. of articles return 
     if limit != None and page != 1:
@@ -28,42 +25,26 @@ def get_articles(search, limit=None, file_name=None):
             print('All required articles are collected in the file: ', str(file_name))
             return
                 
-
     while True:
         try:
-            print(page)
             if page == 1:
-                url = 'https://bg.annapurnapost.com/api/search?{}'.format(search)
+                url = 'https://bg.annapurnapost.com/api/search?title={}'.format(search)
             else:
-                url = 'https://bg.annapurnapost.com/api/search?title={}&page={}'.format(search, page)
+                url = 'https://bg.annapurnapost.com/api/search?title={}&page={}'.format(search, page)  
+            items = requests.get(url).json()['data']['items']
+            print(requests.get(url).json())
             
-            data = requests.get(url)
-            json_data = data.json()
-            items = json_data['data']['items']
-            
+            articles = []
             # dump the articles to the file
-            if not os.path.isfile(file_name):
-                with open(file_name, mode='w') as f:
-                    f.write(json.dumps(items))
-            else:
-                with open(file_name) as f:
-                    articles = json.load(f)
-                
-                # append new articles to the file
-                new_articles = articles + items
-
-                with open(file_name, mode='w') as f:
-                    f.write(json.dumps(new_articles))
-            
-            #  append the pagination number to the file 
-            if page != 1:
-                with open(pagination_record, mode='a') as f:
-                    f.write('\n')
-                    f.write(str(page))
+            with open(file_name) as f:
+                articles = list(json.load(f)) + [{'page': page, 'articles': items}]
+              
+            with open(file_name, mode = 'w') as fw:
+                fw.write(json.dumps(articles))
 
             # break the loop if limit of pages reached
             # or it is the last page
-            if limit != None:
+            if limit != None: 
                 if limit == page:
                     break
             if len(items)<10:
@@ -71,7 +52,6 @@ def get_articles(search, limit=None, file_name=None):
                 break
 
             page += 1
-
            
         except requests.ConnectionError as e:
             print('A network error occured while connecting. Please check your internet connection.')
