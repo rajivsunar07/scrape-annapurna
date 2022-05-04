@@ -13,17 +13,16 @@ def get_articles(search, limit=None, file_name=None):
 
     if os.path.isfile(file_name):
         with open(file_name) as f:
-            articles = list(json.load(f))
-            page = articles[-1]['page'] + 1
+            articles = json.load(f)
+            page = articles['page'][-1] + 1
     else: 
         with open(file_name, mode='w') as f:
-            f.write(json.dumps([]))
+            f.write(json.dumps({'page': [], 'articles': []}))
 
-    # if the file contains required no. of articles return 
-    if limit != None and page != 1:
-        if limit == (page - 1):
-            print('All required articles are collected in the file: ', str(file_name))
-            return
+    # if thef file contains required no. of articles return 
+    if limit == (page - 1):
+        print('All required articles are collected in the file: ', str(file_name))
+        return
                 
     while True:
         try:
@@ -32,21 +31,26 @@ def get_articles(search, limit=None, file_name=None):
             else:
                 url = 'https://bg.annapurnapost.com/api/search?title={}&page={}'.format(search, page)  
             items = requests.get(url).json()['data']['items']
-            print(requests.get(url).json())
             
-            articles = []
+            new_data = []
             # dump the articles to the file
             with open(file_name) as f:
-                articles = list(json.load(f)) + [{'page': page, 'articles': items}]
-              
+                data = json.load(f)
+                pages = list(data['page']) + [page]
+                articles = list(data['articles'])
+                new_data = {
+                    'page': pages,
+                    'articles': articles + items
+                }
+
             with open(file_name, mode = 'w') as fw:
-                fw.write(json.dumps(articles))
+                fw.write(json.dumps(new_data))
 
             # break the loop if limit of pages reached
             # or it is the last page
-            if limit != None: 
-                if limit == page:
-                    break
+            if limit == page:
+                break
+
             if len(items)<10:
                 print('This is the last page:', page)
                 break
@@ -64,3 +68,4 @@ def get_articles(search, limit=None, file_name=None):
         except KeyError as e:
             print('This is the last page: ', page - 1 )
             break
+
